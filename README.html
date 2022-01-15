@@ -366,20 +366,23 @@ code {
     });
   </script>
 <ol>
-<li>pgadmin設定</li>
-<li>client 一覧</li>
-<li>client create画面</li>
+<li>meかmeじゃないかを上の階層から渡したい/Users/admin/works/meety/client/src/containers/Messages/hooks/useMessages.jsらへん見てた</li>
+<li>docker server からdb繋げないpersonControllers.go L:71dial tcp 127.0.0.1:5432: connect: connection refused</li>
 </ol>
-<p>./init.sh</p>
-<p>client &gt;&gt; react
+<p>./init.shと./generate_code.shはdockerに置き換わった</p>
+<p>client repository https://github.com/Ryuichi-g/meety_client
+server repository https://github.com/Ryuichi-g/meety_server
+client &gt;&gt; react
 server &gt;&gt; go</p>
+<!-- db -->
 <p>brew services start postgresql
 psql postgres</p>
+<!-- server -->
 <p>docker compose up -d
 cd server
-go run main.go</p>
-<!-- オートリロード -->
-<p>gin -p 3001 -i run main.go</p>
+go run main.go
+gin -p 3001 -i run main.go <!-- ホットリロード --></p>
+<!-- client -->
 <p>cd client
 yarn start</p>
 <p>psql -p 5432 -h localhost -d book_keeper -U postgres</p>

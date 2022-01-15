@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"meety/server/controllers"
+	"github.com/Ryuichi-g/meety_server/controllers"
 	"net/http"
 	"net/http/httptest"
 	"testing"

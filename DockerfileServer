@@ -1,0 +1,15 @@
+FROM golang:1.16.0-alpine
+
+ENV GO111MODULE=on
+
+WORKDIR /go/src/meety_server
+COPY . ./
+RUN apk --no-cache add tzdata && \
+    cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
+    apk del tzdata
+RUN apk add --no-cache --update \
+  git
+RUN go get -u github.com/cosmtrek/air
+CMD ["air", "-c", ".air.toml"]
+RUN go get github.com/pilu/fresh
+RUN go get github.com/lib/pq

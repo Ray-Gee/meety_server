@@ -1,0 +1,4 @@
+FROM node:16.0.0-alpine3.11
+
+WORKDIR /client
+RUN yarn

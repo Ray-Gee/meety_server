@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package crud;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/Ryuichi-g/meety_server/tree/main/proto/crud";
+
+
+service UserService {
+  rpc ListUsers (ListUserRequest) returns (ListUsersResponses) {
+      option (google.api.http) = {
+        get: "/api/v1/users"
+      };
+  };
+
+  rpc GetUser (GetUserRequest) returns (User) {
+      option (google.api.http) = {
+        get: "/api/v1/users/{encrypted_id}"
+      };
+  };
+
+  rpc CreateUser (CreateUserRequest) returns (User) {
+      option (google.api.http) = {
+        post: "/api/v1/users"
+        body: "*"
+      };
+  };
+
+  rpc UpdateUser (UpdateUserRequest) returns (User) {
+      option (google.api.http) = {
+        put: "/api/v1/users/{encrypted_id}"
+        body: "*"
+      };
+  };
+
+  rpc DeleteUser (DeleteUserRequest) returns (Empty) {
+      option (google.api.http) = {
+        delete: "/api/v1/users/{encrypted_id}"
+      };
+  };
+}
+
+message Empty {
+}
+
+message ListUserRequest {
+}
+
+message GetUserRequest {
+  string encrypted_id = 1;
+}
+
+message CreateUserRequest {
+  string name = 1;
+}
+
+message UpdateUserRequest {
+  string encrypted_id = 1;
+  string name = 2;
+}
+
+message DeleteUserRequest {
+  string encrypted_id = 1;
+}
+
+message User {
+  string encrypted_id = 1;
+  string name = 2;
+}
+
+message ListUsersResponses {
+  repeated User users = 1;
+}

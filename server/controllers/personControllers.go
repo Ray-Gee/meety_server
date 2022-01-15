@@ -3,28 +3,18 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"mime/multipart"
 	"path/filepath"
-
-	// "io/ioutil"
-
-	// "math/rand"
 	"strconv"
-
-	// "sync"
 	"time"
-
 	"log"
-	"meety/server/env"
+	"github.com/Ryuichi-g/meety_server/env"
 	"net/http"
 	"os"
-
-	// "time"
-
-	// "github.com/gorilla/mux"
-	// "gorm.io/gorm"
-	"meety/server/models"
-
+    _ "github.com/lib/pq"
+	"github.com/Ryuichi-g/meety_server/models"
+    "github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 )
@@ -57,11 +47,13 @@ func init() {
     DBNAME := os.Getenv("DBNAME")
     PASSWORD := os.Getenv("PASSWORD")
     log.Printf("user=%s password=%s dbname=%s sslmode=disable\n", DBUSER, PASSWORD, DBNAME)
+    log.Printf("DIALECT: %s", DIALECT)
 
-    dbURI := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", DBUSER, PASSWORD, DBNAME)
+    dbURI := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable host=meety-db-1 port=5432", DBUSER, PASSWORD, DBNAME)
+    // dbURI := fmt.Sprintf("%s://%s:%s@meety-db-1:5432/%s", DIALECT, DBUSER, PASSWORD, DBNAME)
     db, err = gorm.Open(DIALECT, dbURI)
     if err != nil {
-        log.Fatal(err)
+        log.Fatal("personControllers.go L:56", err)
     } else {
         fmt.Println("Successfully connected to database")
     }
@@ -109,16 +101,26 @@ func calcAge(t time.Time) (int, error) {
 // }
 
 func GetPeople(w http.ResponseWriter, r *http.Request) {
+    // file, err := os.Create("sample.png")
+    // if err != nil {
+    //     ctx.JSON(http.StatusInternalServerError, ErrorDocument("internal sesrver error"))
+    // }
+    // defer file.Close()
+    // //画像データのコピー
+    // io.Copy(file, ctx.Request.Body)
 
     setupResponse(&w, r)
 	var people []models.Person
-	db.Limit(10).Order("id desc").Find(&people)
+	db.Limit(12).Order("id desc").Find(&people)
 	for i, v := range people {
 		fmt.Printf("%+v\n", v.Name)
 		birthday := v.Birthday
 		age, _ := calcAge(birthday)
 		fmt.Printf("%+v\n", age)
 		people[i].Age = age
+        const layout = "2006-01-02"
+        fmt.Printf("birthday format: %v\n", birthday.Format(layout))
+        people[i].BirthdayFormatted = birthday.Format(layout)
 	}
 	json.NewEncoder(w).Encode(&people)
 }
@@ -154,61 +156,105 @@ func UpdatePerson(w http.ResponseWriter, r *http.Request) {
 
 func CreatePerson(w http.ResponseWriter, r *http.Request) {
     // defer db.Close()
-
+    fmt.Printf("HERE ## creeatePerson: golang %#v", r)
     setupResponse(&w, r)
     if r.Method == "OPTIONS" {
         w.WriteHeader(http.StatusOK)
         return
     }
 
-    fmt.Printf("before formfile: %v\n", r)
-    file, h, _ := r.FormFile("image")
-    bs, err := ioutil.ReadAll(file)    // ファイルの中身を読む
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
+	var person models.Person
+
+    // パース
+    if err := r.ParseMultipartForm(32 << 20); err != nil {
+        fmt.Println("ParseMultipartForm error")
     }
-    s := string(bs)
-    fmt.Printf("s: %v\n", s)
-    fmt.Printf("h: %v\n", h.Filename)
-    filePath := filepath.Join("./images/", h.Filename)
-    // fmt.Printf("filePath: %v\n", filePath)
-    // cur, _ := os.Getwd()
-	// fmt.Println("pwd", cur)
+    mf := r.MultipartForm
+
+    // 通常のリクエスト
+    for k, v := range mf.Value {
+        fmt.Printf("MultipartForm %v : %v\n", k, v)
+    }
+    fmt.Printf("mf.Value name: %v\n", mf.Value["name"])
+    fmt.Printf("mf.Value email: %v\n", mf.Value["email"])
+    person.Name = mf.Value["name"][0]
+    person.Email = mf.Value["email"][0]
+
+    // ファイルのリクエスト
+    var fileName string
+    var f multipart.File
+    for k, v := range mf.File {
+        fmt.Printf("file => %v : %v\n", k, v)
+        for _, vv := range v {
+            f, _ = vv.Open()
+            fmt.Printf("open: %v\n", f)
+
+            // アンコメントするとバイト型でperson.Sourceに保存
+            // img, err := jpeg.Decode(f)
+            // fmt.Printf("img %v\n", img) // ... 132 133 133 134 134 133 133 132 126 126 126 126 126 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125 125] 400 200 YCbCrSubsampleRatio422 (0,0)-(400,602)}
+            // if err != nil {
+            //     log.Fatal(err)
+            // }
+            // buffer := new(bytes.Buffer)
+            // if err := jpeg.Encode(buffer, img, nil); err != nil {
+            //     log.Println("unable to encode image.")
+            // }
+            // imageBytes := buffer.Bytes()
+            // fmt.Printf("imageBytes %+v\n", imageBytes)
+            // person.Source = imageBytes  
+
+            fileName = vv.Filename
+			// fmt.Printf("%v : %v\n", k, vv.Filename) // image : loadjpeg.jpg
+			// fmt.Printf("%v : %v\n", k, vv.Header) // image : map[Content-Disposition:[form-data; name="image"; filename="loadjpeg.jpg"] Content-Type:[image/jpeg]]
+			// fmt.Printf("%v : %v\n", k, vv.Size) // image : 57682
+		}
+    }
+    // uuid作成
+    extension := filepath.Ext(fileName)
+    uu, err := uuid.NewRandom()
+    if err != nil {
+            fmt.Println(err)
+    }
+    newPath := uu.String() + extension
+    fmt.Printf("newPath%+v\n", newPath)
+
+    // clientFilePath := filepath.Join("./images/", fileName)
+    clientFilePath := filepath.Join("./images/", newPath)
+    filePath := filepath.Join("../client/public/", clientFilePath)
+    fmt.Printf("filePathNew: %+v\n", filePath)
     nf, err := os.Create(filePath)
-    fmt.Printf("nf: %v\n", nf)
     if err != nil {
         log.Printf("[os.Create] %v\n", err)
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
     defer nf.Close()
-    _, err = nf.Write(bs)    // 作成したファイルに、読み込んだファイルと同じ内容を書き込む
+    fmt.Printf("nf: %+v\n", nf)
+    _, err = io.Copy(nf, f)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    // fmt.Printf("s: %v\n", s)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    defer file.Close()
     
-	var person models.Person
-    
+	person.ImagePath = clientFilePath
 	json.NewDecoder(r.Body).Decode(&person)
-	person.ImagePath = filePath
     fmt.Printf("filePath %v", filePath)
+    fmt.Printf("person %v", person)
 
 	createdPerson := db.Create(&person)
 	err = createdPerson.Error
 	if err != nil {
 		json.NewEncoder(w).Encode(err)
-	} else {
-		json.NewEncoder(w).Encode(&person)
-	}
-	
+    } else {
+        json.NewEncoder(w).Encode(&person)
+    }
+    // w.Header().Set("Content-Type", "text/html")
+    // w.Header().Set("location", "http://www.yahoo.co.jp/")
+    // w.WriteHeader(http.StatusMovedPermanently)
 }
 
 func DeletePerson(w http.ResponseWriter, r *http.Request)  {
@@ -263,6 +309,3 @@ func DeleteBook(w http.ResponseWriter, r *http.Request)  {
 
 	json.NewEncoder(w).Encode(&book)
 }
-
-//成功version
-// db.Model(&person).Where("id=?", i).Update("birthday", time.Unix(unixtime, 0).Format(date_format))
