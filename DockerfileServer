@@ -10,6 +10,7 @@ RUN apk --no-cache add tzdata && \
 RUN apk add --no-cache --update \
   git
 RUN go get -u github.com/cosmtrek/air
-CMD ["air", "-c", ".air.toml"]
 RUN go get github.com/pilu/fresh
 RUN go get github.com/lib/pq
+# CMD ["air", "-c", ".air.toml"]
+CMD ["go", "run", "main.go"]

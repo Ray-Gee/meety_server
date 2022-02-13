@@ -19,13 +19,15 @@ services:
     volumes:
       - ./docker/postgresql/data:/var/lib/postgresql/data
       - ./docker/postgresql/initdb:/docker-entrypoint-initdb.d
-  proto:
-    command: ./proto/scripts/protoc.sh
-    build:
-      context: .
-      dockerfile: ./docker/DockerfileProto
-    volumes:
-      - .:/proto
+    networks:
+      - external-api
+  # proto:
+  #   command: ./proto/scripts/protoc.sh
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/DockerfileProto
+  #   volumes:
+  #     - .:/proto
   server:
     # command: ./server.sh
     command: ./scripts/server.sh
@@ -36,16 +38,18 @@ services:
       - ./server:/go/src/meety_server
     ports:
       - "9090:9090"
-    depends_on:
-      - proto
-  envoy:
-    build:
-      context: .
-      dockerfile: DockerfileEnvoy
-    ports:
-      - "8080:8080"
-    links:
-      - server
+    # depends_on:
+    #   - proto
+    networks:
+      - external-api
+  # envoy:
+  #   build:
+  #     context: .
+  #     dockerfile: DockerfileEnvoy
+  #   ports:
+  #     - "8080:8080"
+  #   links:
+  #     - server
   client:
     command: ./scripts/client.sh
     build:
@@ -54,9 +58,14 @@ services:
     volumes:
       - ./client:/client
       - /client/node_modules
-    depends_on:
-      - proto
+    # depends_on:
+    #   - proto
     ports:
       - "3000:3000"
     environment: 
       - EXTEND_ESLINT=true
+    networks:
+      - external-api
+networks:
+  external-api:
+    external: true

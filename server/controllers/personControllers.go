@@ -4,19 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
-	"path/filepath"
-	"strconv"
-	"time"
 	"log"
-	"github.com/Ryuichi-g/meety_server/env"
+	"mime/multipart"
 	"net/http"
 	"os"
-    _ "github.com/lib/pq"
+	"path/filepath"
+	"strconv"
+	// "strings"
+	"time"
+
+	"github.com/Ryuichi-g/meety_server/env"
 	"github.com/Ryuichi-g/meety_server/models"
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
+	_ "github.com/lib/pq"
 )
 
 // type Person struct {
@@ -49,8 +51,8 @@ func init() {
     log.Printf("user=%s password=%s dbname=%s sslmode=disable\n", DBUSER, PASSWORD, DBNAME)
     log.Printf("DIALECT: %s", DIALECT)
 
-    dbURI := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable host=meety-db-1 port=5432", DBUSER, PASSWORD, DBNAME)
-    // dbURI := fmt.Sprintf("%s://%s:%s@meety-db-1:5432/%s", DIALECT, DBUSER, PASSWORD, DBNAME)
+    dbURI := fmt.Sprintf("user=postgres password=postgres dbname=%s sslmode=disable host=meety-db-1 port=5432", DBNAME) // docker
+    // dbURI := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable port=5432", DBUSER, PASSWORD, DBNAME) // local
     db, err = gorm.Open(DIALECT, dbURI)
     if err != nil {
         log.Fatal("personControllers.go L:56", err)
@@ -58,16 +60,17 @@ func init() {
         fmt.Println("Successfully connected to database")
     }
         
-    db.AutoMigrate(&models.Person{})
-    db.AutoMigrate(&models.Book{})
+    // db.AutoMigrate(&models.Person{})
+    // db.AutoMigrate(&models.Book{})
 }
 func setupResponse(w *http.ResponseWriter, r *http.Request) {
-
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+    // (*w).Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+	// (*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
     (*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-    // (*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+    // (*w).Header().Set("Access-Control-Allow-Credentials", "true")
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
     (*w).Header().Set("Access-Control-Allow-Headers", "*")
-    (*w).Header().Set( "Access-Control-Allow-Credentials", "true" )
+    (*w).Header().Set("Access-Control-Max-Age", "864000")
 }
 
 func calcAge(t time.Time) (int, error) {
@@ -108,10 +111,27 @@ func GetPeople(w http.ResponseWriter, r *http.Request) {
     // defer file.Close()
     // //画像データのコピー
     // io.Copy(file, ctx.Request.Body)
+    fmt.Printf("getpeopleの中")
+    // setupResponse(&w, r)
+    // if r.Method == "OPTIONS" {
+    //     w.WriteHeader(http.StatusOK)
+    //     return
+    // }
+    // if r.Method == "OPTIONS" {
+    //     //ヘッダーにAuthorizationが含まれていた場合はpreflight成功
+    //     s := r.Header.Get("Access-Control-Request-Headers")
+    //     fmt.Printf("ヘッダー中身%s", s)
+    //     if strings.Contains(s, "authorization") == true || strings.Contains(s, "Authorization") == true {
+    //     w.WriteHeader(204)
+    //     }
+    //     w.WriteHeader(400)
+    //     return
+    // }
+    fmt.Printf("OPTIONSの下")
 
-    setupResponse(&w, r)
 	var people []models.Person
 	db.Limit(12).Order("id desc").Find(&people)
+    fmt.Printf("people: %#v", people)
 	for i, v := range people {
 		fmt.Printf("%+v\n", v.Name)
 		birthday := v.Birthday
@@ -123,6 +143,7 @@ func GetPeople(w http.ResponseWriter, r *http.Request) {
         people[i].BirthdayFormatted = birthday.Format(layout)
 	}
 	json.NewEncoder(w).Encode(&people)
+    fmt.Printf("getpeople終わり")
 }
 
 func GetPerson(w http.ResponseWriter, r *http.Request) {
@@ -138,22 +159,6 @@ func GetPerson(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&person)
 }
 
-func UpdatePerson(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-    var person models.Person
-    // 生年月日形式
-    // {"birthday": "2022-02-02T04:10:03Z"}
-    db.First(&person, params["id"])
-    json.NewDecoder(r.Body).Decode(&person)
-    updatedPerson := db.Save(&person)
-    err = updatedPerson.Error
-    if err != nil {
-        json.NewEncoder(w).Encode(err)
-    } else {
-        json.NewEncoder(w).Encode(&person)
-    }
-}
-
 func CreatePerson(w http.ResponseWriter, r *http.Request) {
     // defer db.Close()
     fmt.Printf("HERE ## creeatePerson: golang %#v", r)
@@ -162,6 +167,7 @@ func CreatePerson(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         return
     }
+    fmt.Printf("createPerson, OPTIONSの下")
 
 	var person models.Person
 
@@ -256,6 +262,23 @@ func CreatePerson(w http.ResponseWriter, r *http.Request) {
     // w.Header().Set("location", "http://www.yahoo.co.jp/")
     // w.WriteHeader(http.StatusMovedPermanently)
 }
+
+func UpdatePerson(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+    var person models.Person
+    // 生年月日形式
+    // {"birthday": "2022-02-02T04:10:03Z"}
+    db.First(&person, params["id"])
+    json.NewDecoder(r.Body).Decode(&person)
+    updatedPerson := db.Save(&person)
+    err = updatedPerson.Error
+    if err != nil {
+        json.NewEncoder(w).Encode(err)
+    } else {
+        json.NewEncoder(w).Encode(&person)
+    }
+}
+
 
 func DeletePerson(w http.ResponseWriter, r *http.Request)  {
 	params := mux.Vars(r)

@@ -1,5 +1,5 @@
 1. meかmeじゃないかを上の階層から渡したい/Users/admin/works/meety/client/src/containers/Messages/hooks/useMessages.jsらへん見てた
-1. docker server からdb繋げないpersonControllers.go L:71dial tcp 127.0.0.1:5432: connect: connection refused
+1. go のdockerからreactのdockerにcreateさせたい(ローカルのようにパスからは辿れない)
 
 ./init.shと./generate_code.shはdockerに置き換わった
 
